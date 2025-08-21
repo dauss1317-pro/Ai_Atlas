@@ -1,7 +1,7 @@
 import mysql from "mysql2/promise";
 import bcrypt from "bcrypt";
 
-export const runtime = "node";
+// export const runtime = "node";
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,

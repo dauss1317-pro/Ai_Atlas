@@ -2,7 +2,7 @@ import mysql from "mysql2/promise";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 
-export const runtime = "node";
+// export const runtime = "node";
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -74,7 +74,7 @@ export async function POST(req) {
       [user.id, token, expires]
     );
 
-    const resetLink = `https://barrier-tip-abroad-mazda.trycloudflare.com/reset-password?token=${token}`;
+    const resetLink = `https://even-those-jeff-heard.trycloudflare.com/reset-password?token=${token}`;
 
     // Send the email
     await sendResetEmail(email, resetLink);
