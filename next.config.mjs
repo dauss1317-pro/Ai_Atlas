@@ -14,10 +14,6 @@ const nextConfig = {
   // devIndicators: false,
 
   // Add i18n config here
-  i18n: {
-    locales: ['en', 'ms'], // English + Malay
-    defaultLocale: 'en',
-  },
 };
 
 export default withPWA(nextConfig);
