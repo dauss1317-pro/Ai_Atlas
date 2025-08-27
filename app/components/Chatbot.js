@@ -16,6 +16,21 @@ export default function Chatbot() {
   const [open, setOpen] = useState(false);
   const [wallpaper, setWallpaper] = useState(null);
 
+  const TypingIndicator = () => (
+    <div className="flex items-center space-x-1">
+      <span className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"></span>
+      <span
+        className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"
+        style={{ animationDelay: "0.2s" }}
+      ></span>
+      <span
+        className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"
+        style={{ animationDelay: "0.4s" }}
+      ></span>
+    </div>
+  );
+
+
   // Scroll to bottom when messages update
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -119,6 +134,74 @@ export default function Chatbot() {
     type();
   }
 
+  // async function sendMessage() {
+  //   if (!input.trim()) return;
+  //   if (!currentUser?.id) {
+  //     console.error("No user logged in");
+  //     return;
+  //   }
+
+  //   const userMessage = { id: Date.now(), role: "user", text: input };
+  //   const updatedMessages = [...messages, userMessage];
+  //   setMessages(updatedMessages);
+  //   setInput("");
+  //   setLoading(true);
+
+  //   try {
+  //     const res = await fetch("/api/chat", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         messages: updatedMessages.map((m) => ({
+  //           role: m.role === "bot" ? "assistant" : m.role,
+  //           content: m.text,
+  //         })),
+  //         userId: currentUser.id,
+  //         conversationId,
+  //       }),
+  //     });
+
+  //     if (!res.ok) {
+  //       const errorText = await res.text();
+  //       console.error("Server Error:", errorText);
+  //       throw new Error(`HTTP ${res.status} - ${errorText}`);
+  //     }
+  //     const data = await res.json();
+
+  //     if (data.conversationId && !conversationId) {
+  //       setConversationId(data.conversationId);
+  //     }
+
+  //     if (data.menuOptions) {
+  //       setMessages((prev) => [
+  //         ...prev,
+  //         {
+  //           id: Date.now(),
+  //           role: "bot",
+  //           text: data.reply || "",
+  //           options: data.menuOptions,
+  //         },
+  //       ]);
+  //       setLoading(false);
+  //     } else {
+  //       const aiReply =
+  //         data.reply || "Hmm... I couldn’t think of anything to say.";
+
+  //       const botMessageId = Date.now() + 1;
+  //       setMessages((prev) => [
+  //         ...prev,
+  //         { id: botMessageId, role: "bot", text: "" },
+  //       ]);
+
+  //       setTimeout(() => {
+  //         typeWriterEffect(botMessageId, aiReply, () => setLoading(false));
+  //       }, 90);
+  //     }
+  //   } catch (err) {
+  //     console.error("Chat send error:", err);
+  //     setLoading(false);
+  //   }
+  // } // ✅ closes sendMessage
   async function sendMessage() {
     if (!input.trim()) return;
     if (!currentUser?.id) {
@@ -130,7 +213,13 @@ export default function Chatbot() {
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     setInput("");
-    setLoading(true);
+
+    // Add temporary typing bubble
+    const botTypingId = `typing-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      { id: botTypingId, role: "bot", text: "__TYPING__" }
+    ]);
 
     try {
       const res = await fetch("/api/chat", {
@@ -158,35 +247,42 @@ export default function Chatbot() {
       }
 
       if (data.menuOptions) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now(),
-            role: "bot",
-            text: data.reply || "",
-            options: data.menuOptions,
-          },
-        ]);
-        setLoading(false);
+        // Replace typing bubble with menu reply
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === botTypingId
+              ? { id: Date.now(), role: "bot", text: data.reply || "", options: data.menuOptions }
+              : m
+          )
+        );
       } else {
-        const aiReply =
-          data.reply || "Hmm... I couldn’t think of anything to say.";
+        const aiReply = data.reply || "Hmm... I couldn’t think of anything to say.";
 
         const botMessageId = Date.now() + 1;
-        setMessages((prev) => [
-          ...prev,
-          { id: botMessageId, role: "bot", text: "" },
-        ]);
+        // Replace typing bubble with empty bot message
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === botTypingId ? { id: botMessageId, role: "bot", text: "" } : m
+          )
+        );
 
+        // Animate typing
         setTimeout(() => {
-          typeWriterEffect(botMessageId, aiReply, () => setLoading(false));
+          typeWriterEffect(botMessageId, aiReply, () => {});
         }, 90);
       }
     } catch (err) {
       console.error("Chat send error:", err);
-      setLoading(false);
+      // Replace typing bubble with error
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === botTypingId
+            ? { id: Date.now(), role: "bot", text: "⚠️ Sorry, something went wrong." }
+            : m
+        )
+      );
     }
-  } // ✅ closes sendMessage
+  }
 
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -212,7 +308,7 @@ export default function Chatbot() {
         </button>
       </header>
 
-      {/* Messages */}
+      {/* Messages
       <main className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-[400px]" 
       style={{
         backgroundImage: wallpaper ? `url(${wallpaper})` : "none",
@@ -246,6 +342,12 @@ export default function Chatbot() {
                   </button>
                 )}
 
+                {loading && (
+                  <div className="flex justify-start">
+                    <TypingIndicator />
+                  </div>
+                )}
+
                 {options && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {options.map((opt, idx) => {
@@ -275,6 +377,87 @@ export default function Chatbot() {
             Atlas now has our smartest, fastest, most useful AI to asist in solve the issue without any hesitation.
           </div>
         )}
+        <div ref={messagesEndRef} />
+      </main> */}
+      <main
+        className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-[400px]"
+        style={{
+          backgroundImage: wallpaper ? `url(${wallpaper})` : "none",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
+        {messages.length > 0 ? (
+          <>
+            {messages.map(({ id, role, text, options }) => (
+              <div
+                key={id}
+                className={`flex ${role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[70%] p-3 rounded-lg whitespace-pre-wrap ${
+                    role === "user"
+                      ? "bg-blue-500 text-white rounded-br-none"
+                      : "bg-gray-200 text-gray-900 rounded-bl-none"
+                  }`}
+                >
+                  {/* <ReactMarkdown>{text}</ReactMarkdown> */}
+                  <ReactMarkdown>
+                    {text === "__TYPING__" ? "" : text}
+                  </ReactMarkdown>
+                  {text === "__TYPING__" && <TypingIndicator />}
+
+                  {role === "assistant" && (
+                    <button
+                      onClick={() => copyToClipboard(text)}
+                      className="sticky right-0 top-0 m-1 p-1 hover:bg-gray-300 rounded"
+                      aria-label="Copy message"
+                      title="Copy to clipboard"
+                      style={{ fontSize: "0.8rem", lineHeight: 1, cursor: "pointer" }}
+                    >
+                      <FaClipboard />
+                    </button>
+                  )}
+
+                  {options && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {options.map((opt, idx) => {
+                        const label = typeof opt === "string" ? opt : opt.label;
+                        const value = typeof opt === "string" ? opt : opt.value;
+
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              setInput(value);
+                              sendMessage();
+                            }}
+                            className="bg-white border border-gray-300 text-gray-800 px-3 py-1 rounded-md hover:bg-gray-100"
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* ✅ Typing indicator only once, at the end */}
+            {loading && (
+              <div className="flex justify-start">
+                <TypingIndicator />
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-gray-500 text-center" style={{ color: "white" }}>
+            Atlas now has our smartest, fastest, most useful AI to assist in solving the issue without any hesitation.
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </main>
 

@@ -465,10 +465,6 @@ export async function POST(req) {
     2. Structured Response Style:
     - Always begin with:
     Dear ${username},
-    - Always close with:
-    Best regards,
-    **Atlas Assistant Agent**
-    MTSC.AI
     3. If the question is general or unclear, give simple helpful, concise, and friendly advice. Reply in the same language as the user.`
       };
       const ollamaReply = await getGeneralAdviceWithOllama(systemPrompt, lastMsg.content, category, username);
