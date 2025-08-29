@@ -193,7 +193,7 @@ export default function Login() {
           {translatedTexts.signInToContinue || defaultTexts.signInToContinue}
         </p>
 
-        Form
+        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-600">
@@ -203,6 +203,7 @@ export default function Login() {
               type="email"
               required
               value={email}
+              autoComplete="username"
               onChange={(e) => setEmail(e.target.value)}
               placeholder={translatedTexts.emailLabel || defaultTexts.emailLabel}
               className="mt-1 block w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring focus:ring-blue-200 outline-none text-gray-600"
@@ -217,6 +218,7 @@ export default function Login() {
               type="password"
               required
               value={password}
+              autoComplete="current-password"
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               className="mt-1 block w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring focus:ring-blue-200 outline-none text-gray-600"

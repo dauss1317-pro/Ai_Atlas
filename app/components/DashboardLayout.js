@@ -123,7 +123,7 @@ export default function DashboardLayout({ children }) {
         if (result.isConfirmed) {
           const refreshToken = localStorage.getItem("refreshToken");
           if (refreshToken) {
-            fetch("/api/refresh", {
+            fetch("/api/refresh-token", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ token: refreshToken }),

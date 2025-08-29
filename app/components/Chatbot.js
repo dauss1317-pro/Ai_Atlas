@@ -269,7 +269,7 @@ export default function Chatbot() {
 
         // Animate typing
         setTimeout(() => {
-          typeWriterEffect(botMessageId, aiReply, () => {}, 1);
+          typeWriterEffect(botMessageId, aiReply, () => {}, 5);
         }, 1);
       }
     } catch (err) {
