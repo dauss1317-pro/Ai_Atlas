@@ -15,6 +15,7 @@ export default function Chatbot() {
   const [toast, setToast] = useState(null); // string message or null
   const [open, setOpen] = useState(false);
   const [wallpaper, setWallpaper] = useState(null);
+  
 
   const TypingIndicator = () => (
     <div className="flex items-center space-x-1">
@@ -112,7 +113,7 @@ export default function Chatbot() {
     }
   }
 
-  function typeWriterEffect(messageId, fullText, callback) {
+  function typeWriterEffect(messageId, fullText, callback, speed) {
     let index = 0;
 
     function type() {
@@ -125,7 +126,7 @@ export default function Chatbot() {
       );
       index++;
       if (index <= fullText.length) {
-        setTimeout(type, 30);
+        setTimeout(type, speed);
       } else {
         callback && callback();
       }
@@ -268,8 +269,8 @@ export default function Chatbot() {
 
         // Animate typing
         setTimeout(() => {
-          typeWriterEffect(botMessageId, aiReply, () => {});
-        }, 90);
+          typeWriterEffect(botMessageId, aiReply, () => {}, 1);
+        }, 1);
       }
     } catch (err) {
       console.error("Chat send error:", err);

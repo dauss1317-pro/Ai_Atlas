@@ -123,7 +123,7 @@ export default function DashboardLayout({ children }) {
         if (result.isConfirmed) {
           const refreshToken = localStorage.getItem("refreshToken");
           if (refreshToken) {
-            fetch("/api/refresh-token", {
+            fetch("/api/refresh", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ token: refreshToken }),
@@ -148,6 +148,7 @@ export default function DashboardLayout({ children }) {
 
   function handleLogout() {
     localStorage.removeItem("authToken");
+    localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
     setUser(null);
     window.location.href = "/";

@@ -193,7 +193,7 @@ export default function Login() {
           {translatedTexts.signInToContinue || defaultTexts.signInToContinue}
         </p>
 
-        {/* Form */}
+        Form
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-600">
