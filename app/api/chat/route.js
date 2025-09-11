@@ -187,44 +187,7 @@ async function generateTitleWithOllama(messages) {
   return title.trim() || "Untitled Chat";
 }
 
-// async function findBestSemanticMatch(query, category) {
-//   if (!["AXI", "AOI"].includes(category)) return null;
 
-//   const data = category === "AXI" ? axiData : aoiData;
-//   const embeddings = cachedEmbeddings[category];
-
-//   if (!data.length || !embeddings.length) return null;
-
-//   const queryEmbedding = await fetchEmbedding(query);
-
-//   let bestScore = -1;
-//   let bestIndex = -1;
-
-//   for (let i = 0; i < embeddings.length; i++) {
-//     const emb = embeddings[i];
-//     if (!emb) continue; // skip missing embeddings
-//     const score = cosineSimilarity(queryEmbedding, emb);
-//     if (score > bestScore) {
-//       bestScore = score;
-//       bestIndex = i;
-//     }
-//   }
-
-//   console.log(`Semantic search best score: ${bestScore.toFixed(4)}`);
-
-//   if (bestScore > 0.1) {
-//     const matchedRow = data[bestIndex];
-//     console.log("Matched row:", matchedRow);
-//     return {
-//       issueId: matchedRow["issue id"] || matchedRow["issueid"] || "",
-//       issue: matchedRow.issue || "",
-//       solution: matchedRow.solution || "",
-//       score: bestScore,
-//     };
-//   }
-
-//   return null;
-// }
 // Get top N matches
 async function findTopSemanticMatches(query, category, topN = 3) {
   if (!["AXI", "AOI"].includes(category)) return [];

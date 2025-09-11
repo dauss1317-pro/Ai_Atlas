@@ -74,7 +74,7 @@ export async function POST(req) {
       [user.id, token, expires]
     );
 
-    const resetLink = `https://even-those-jeff-heard.trycloudflare.com/reset-password?token=${token}`;
+    const resetLink = `https://remember-nat-satin-meaning.trycloudflare.com/reset-password?token=${token}`;
 
     // Send the email
     await sendResetEmail(email, resetLink);
