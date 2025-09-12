@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { FaClipboard } from "react-icons/fa";
 import { MdWallpaper } from "react-icons/md";
+import { FaPlus, FaTimes } from "react-icons/fa";
 
 export default function Chatbot() {
   const [messages, setMessages] = useState([]); // start empty
@@ -15,6 +16,9 @@ export default function Chatbot() {
   const [toast, setToast] = useState(null); // string message or null
   const [open, setOpen] = useState(false);
   const [wallpaper, setWallpaper] = useState(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const fileInputRef = useRef(null);
   
 
   const TypingIndicator = () => (
@@ -134,6 +138,26 @@ export default function Chatbot() {
 
     type();
   }
+
+  // When user selects a file
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length) {
+      setAttachments((prev) => [...prev, ...files]);
+    }
+  };
+
+  // Remove an attachment
+  const removeAttachment = (index) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Open file dialog with filter
+  const handleFileClick = (accept) => {
+    fileInputRef.current.accept = accept;
+    fileInputRef.current.click();
+    setShowMenu(false);
+  };
 
   // async function sendMessage() {
   //   if (!input.trim()) return;
@@ -474,8 +498,32 @@ export default function Chatbot() {
           e.preventDefault();
           sendMessage();
         }}
-        className="p-4 border-t border-gray-200 flex items-center gap-2"
+        className="relative p-4 border-t border-gray-200 flex items-center gap-2"
       >
+        {/* Attachment preview */}
+        {attachments.length > 0 && (
+          <div className="absolute -top-10 left-4 flex gap-2" style={{color:"black"}}>
+            {attachments.map((file, index) => (
+              <div
+                key={index}
+                className="bg-gray-100 px-3 py-1 rounded-lg flex items-center gap-2 shadow-md"
+              >
+                {/* Always show file name */}
+                <span className="text-sm truncate max-w-xs">{file.name}</span>
+
+                {/* Remove button */}
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(index)}
+                  className="text-gray-500 hover:text-gray-800"
+                >
+                  <FaTimes size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <textarea
           rows={1}
           className="flex-1 resize-none border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
@@ -485,6 +533,50 @@ export default function Chatbot() {
           onKeyDown={handleKeyDown}
           disabled={loading}
         />
+
+        {/* Plus icon */}
+        <div className="relative">
+          <button
+            type="button"
+            className="bg-blue-600 hover:hover:bg-blue-700 p-2 rounded-full"
+            onClick={() => setShowMenu((prev) => !prev)}
+          >
+            <FaPlus />
+          </button>
+
+          {/* Dropdown menu */}
+          {showMenu && (
+            <div className="absolute bottom-full mb-2 right-0 w-32 bg-white border rounded-md shadow-lg z-10" style={{ color: "black"}}>
+              <button
+                className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                onClick={() => handleFileClick("*/*")}
+              >
+                File
+              </button>
+              <button
+                className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                onClick={() => handleFileClick("image/*")}
+              >
+                Photo
+              </button>
+              <button
+                className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                onClick={() => handleFileClick(".pdf,.doc,.docx")}
+              >
+                Other
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Hidden file input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          onChange={handleFileChange}
+        />
+
         <button
           type="submit"
           disabled={loading}
