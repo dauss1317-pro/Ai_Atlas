@@ -32,40 +32,18 @@ function cleanDataKeys(data) {
 
 async function fetchEmbedding(text) {
   try {
-    const res = await fetch(
-      "https://api-inference.huggingface.co/models/sentence-transformers/all-mpnet-base-v2/pipeline/feature-extraction",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.HF_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ inputs: text }),
-      }
-    );
+    const res = await fetch("http://localhost:8000/embed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
 
     if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`HF Embedding API error: ${res.status} ${errText}`);
+      throw new Error(`Local Embedding API error: ${res.status} ${await res.text()}`);
     }
 
     const data = await res.json();
-
-    if (Array.isArray(data)) {
-      if (data.length > 0) {
-        if (Array.isArray(data[0])) {
-          // Nested array, return first element
-          return data[0];
-        } else {
-          // Flat array, return data
-          return data;
-        }
-      } else {
-        throw new Error("Empty embedding array");
-      }
-    } else {
-      throw new Error("Unexpected embedding response format");
-    }
+    return data.embedding;
   } catch (error) {
     console.error("❌ Error fetching embedding:", error);
     throw error;
@@ -568,10 +546,3 @@ export async function POST(req) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
-
-
-
-
-
-
-
