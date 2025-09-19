@@ -1,8 +1,6 @@
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { Poppins } from "next/font/google";
 import { DM_Sans } from "next/font/google";
-import { Toaster } from "react-hot-toast"; // ✅ Import Toaster
+import "./globals.css";
+import { ToasterProvider } from "./components/ToasterProvider";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -11,33 +9,11 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "600"],
-  variable: "--font-poppins",
-});
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata = {
   title: "Ai Atlas",
   description: "Stylish login page with PWA support",
   manifest: "/manifest.json",
 };
-
-export function generateViewport() {
-  return {
-    themeColor: "#1f2e6b",
-  };
-}
 
 export default function RootLayout({ children }) {
   return (
@@ -49,13 +25,10 @@ export default function RootLayout({ children }) {
           media="(prefers-color-scheme: dark)"
           content="black"
         />
-        {/* ✅ Favicon */}
-        {/* <link rel="icon" href="/favicon.ico" sizes="any" /> */}
-
       </head>
-      <body className={`${dmSans.className} antialiased`}>
+      <body className={`${dmSans.variable} antialiased`}>
         {children}
-        <Toaster position="top-right" reverseOrder={false} /> {/* ✅ Toast here */}
+        <ToasterProvider />
       </body>
     </html>
   );

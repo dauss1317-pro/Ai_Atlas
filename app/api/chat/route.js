@@ -166,41 +166,6 @@ async function generateTitleWithOllama(messages) {
 }
 
 
-// Get top N matches
-// async function findTopSemanticMatches(query, category, topN = 3) {
-//   if (!["AXI", "AOI"].includes(category)) return [];
-
-//   const data = category === "AXI" ? axiData : aoiData;
-//   const embeddings = cachedEmbeddings[category];
-//   if (!data.length || !embeddings.length) return [];
-
-//   const queryEmbedding = await fetchEmbedding(query);
-
-//   // Score all rows
-//   const scored = embeddings.map((emb, i) => {
-//     if (!emb) return null;
-//     return {
-//       score: cosineSimilarity(queryEmbedding, emb),
-//       issueId: data[i]["issue id"] || data[i]["issueid"] || "",
-//       issue: data[i].issue || "",
-//       solution: data[i].solution || "",
-//     };
-//   }).filter(Boolean);
-
-//   // Threshold filtering
-//   const MIN_SCORE = 0.5; // Ignore weak matches
-//   const MAX_SCORE = 1.0; // Usually leave at 1.0 unless you want to cut "too perfect" matches
-
-//   const filtered = scored.filter(m => m.score >= MIN_SCORE && m.score <= MAX_SCORE);
-
-//   // Sort by score
-//   filtered.sort((a, b) => b.score - a.score);
-
-//   return filtered.slice(0, topN);
-// }
-
-// Get top N semantic matches for a query
-
 // Lazy embedding for a row
 async function getRowEmbedding(category, index, text) {
   if (cachedEmbeddings[category][index]) return cachedEmbeddings[category][index];
@@ -399,7 +364,7 @@ export async function POST(req) {
 
     const followUpKeywords = [
       "not solved", "still same", "still the same", "not working",
-      "didn't work", "no change", "still issue", "still problem"
+      "didn't work", "no change", "still issue", "still problem", "still didnt work"
     ];
 
     const isFollowUpNotSolved = followUpKeywords.some(keyword =>
