@@ -471,7 +471,7 @@ export async function POST(req) {
     3. Maintain a respectful, helpful, and professional tone.
     4. Reply in the same language as the user's question
     5. If the user follows up saying it still cannot be solved, provide the nearest solution based on the next best match.
-
+    6. Strictly dont show any signature or best regard
     ${glossary}
     `,
     };

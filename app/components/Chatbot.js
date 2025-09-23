@@ -317,8 +317,8 @@ export default function Chatbot() {
   }
 
   return (
-    <div className="flex flex-col h-full max-w-3xl mx-auto bg-white rounded-lg shadow-lg border border-gray-200">
-      {/* Header */}
+    <div className="flex flex-col h-full mx-auto bg-white rounded-lg shadow-lg border border-gray-200"> 
+      {/* Header : max-w-3xl */}
       <header
         className="flex justify-between items-center text-white p-4 rounded-t-lg font-semibold text-lg"
         style={{ backgroundColor: "#2a3f93" }}

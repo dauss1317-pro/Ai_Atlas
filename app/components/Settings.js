@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import toast from 'react-hot-toast';
 
 export default function Settings() {
+
+  const [loadingCategoryId, setLoadingCategoryId] = useState(null);
   const initialSettings = [
     {
       id: 1,
@@ -50,8 +52,8 @@ export default function Settings() {
       title: "Data Upload",
       description: "Upload new data and manage your troubleshooting cookbook.",
       fields: [
-        { label: "Issue", type: "text", value: "Motor malfunction" },
-        { label: "Solution", type: "textarea", value: "1. Replace and verify belt motor\n2.replace conveyor belt motor\n3.check the relay functionality" },
+        { label: "Issue", type: "text", value: "" },
+        { label: "Solution", type: "textarea", value: "" },
       ],
     },
     {
@@ -59,8 +61,8 @@ export default function Settings() {
       title: "Cookbook Upload",
       description: "Upload new cookbook and manage troubleshooting cookbook.",
       fields: [
-        { label: "Title", type: "text", value: "VUM Server error" },
-        { label: "Description", type: "textarea", value: "VUM registration issue and etc" },
+        { label: "Title", type: "text", value: "" },
+        { label: "Description", type: "textarea", value: "" },
         { label: "Documentation", type: "file", value: "Last payment on Aug 1" },
       ],
     },
@@ -108,79 +110,149 @@ export default function Settings() {
     );
   };
 
+//   const handleSubmit = async (category) => {
+
+//   setLoadingCategoryId(category.id); // 🔒 Disable button for this category
+
+//   if (category.id === 5) {
+//     const payload = {
+//       issue: category.fields[0].value || category.fields[0].placeholder || "",
+//       solution: category.fields[1].value || category.fields[1].placeholder || ""
+//     };
+
+//     try {
+//       const res = await fetch("/api/upload-data", {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify(payload),
+//       });
+
+//       const data = await res.json();
+//       if (data.success) {
+//         toast.success(`Excel updated! New ID: ${data.message.split(": ")[1]}`);
+
+//         // ✅ Clear input values
+//         const updatedCategory = {
+//           ...category,
+//           fields: category.fields.map(f => ({ ...f, value: "" }))
+//         };
+
+//         // ✅ Update state
+//         setSettings(prev =>
+//           prev.map(cat => (cat.id === category.id ? updatedCategory : cat))
+//         );
+//       } else {
+//         toast.error("Failed to update Excel: " + data.error);
+//       }
+//     } catch (err) {
+//       console.error(err);
+//       toast.error("Error submitting form");
+//     }
+//   } else if (category.id === 6) {
+//     // Cookbook upload
+//     const formData = new FormData();
+//     formData.append("Title", category.fields[0].value || "");
+//     formData.append("Description", category.fields[1].value || "");
+
+//     const fileField = category.fields.find(f => f.type === "file" && f.value instanceof File);
+//     if (fileField) {
+//       formData.append("Documentation", fileField.value);
+//     }
+
+//     try {
+//       const res = await fetch("/api/upload-cookbook", {
+//         method: "POST",
+//         body: formData,
+//       });
+
+//       const data = await res.json();
+//       if (data.success) {
+//         toast.success(`Upload successful!`);
+
+//         const updatedCategory = {
+//           ...category,
+//           fields: category.fields.map(f => ({ ...f, value: "" }))
+//         };
+
+//         setSettings(prev =>
+//           prev.map(cat => (cat.id === category.id ? updatedCategory : cat))
+//         );
+//       } else {
+//         toast.error("Failed to upload: " + data.error);
+//       }
+//     } catch (err) {
+//       console.error(err);
+//       toast.error("Error submitting form");
+//     }
+//   }
+// };
+
   const handleSubmit = async (category) => {
-  if (category.id === 5) {
-    const payload = {
-      issue: category.fields[0].value || category.fields[0].placeholder || "",
-      solution: category.fields[1].value || category.fields[1].placeholder || ""
-    };
+    setLoadingCategoryId(category.id); // disable button
 
     try {
-      const res = await fetch("/api/upload-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`Excel updated! New ID: ${data.message.split(": ")[1]}`);
-
-        // ✅ Clear input values
-        const updatedCategory = {
-          ...category,
-          fields: category.fields.map(f => ({ ...f, value: "" }))
+      if (category.id === 5) {
+        const payload = {
+          issue: category.fields[0].value || category.fields[0].placeholder || "",
+          solution: category.fields[1].value || category.fields[1].placeholder || ""
         };
 
-        // ✅ Update state
-        setSettings(prev =>
-          prev.map(cat => (cat.id === category.id ? updatedCategory : cat))
-        );
-      } else {
-        toast.error("Failed to update Excel: " + data.error);
+        const res = await fetch("/api/upload-data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          toast.success(`Excel updated! New ID: ${data.message.split(": ")[1]}`);
+          const updatedCategory = {
+            ...category,
+            fields: category.fields.map(f => ({ ...f, value: "" }))
+          };
+          setSettings(prev =>
+            prev.map(cat => (cat.id === category.id ? updatedCategory : cat))
+          );
+        } else {
+          toast.error("Failed to update Excel: " + data.error);
+        }
+      }
+
+      else if (category.id === 6) {
+        const formData = new FormData();
+        formData.append("Title", category.fields[0].value || "");
+        formData.append("Description", category.fields[1].value || "");
+
+        const fileField = category.fields.find(f => f.type === "file" && f.value instanceof File);
+        if (fileField) formData.append("Documentation", fileField.value);
+
+        const res = await fetch("/api/upload-cookbook", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          toast.success("Upload successful!");
+          const updatedCategory = {
+            ...category,
+            fields: category.fields.map(f => ({ ...f, value: "" }))
+          };
+          setSettings(prev =>
+            prev.map(cat => (cat.id === category.id ? updatedCategory : cat))
+          );
+        } else {
+          toast.error("Failed to upload: " + data.error);
+        }
       }
     } catch (err) {
       console.error(err);
       toast.error("Error submitting form");
+    } finally {
+      setLoadingCategoryId(null); // re-enable button after toast
     }
-  } else if (category.id === 6) {
-    // Cookbook upload
-    const formData = new FormData();
-    formData.append("Title", category.fields[0].value || "");
-    formData.append("Description", category.fields[1].value || "");
+  };
 
-    const fileField = category.fields.find(f => f.type === "file" && f.value instanceof File);
-    if (fileField) {
-      formData.append("Documentation", fileField.value);
-    }
-
-    try {
-      const res = await fetch("/api/upload-cookbook", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`Upload successful!`);
-
-        const updatedCategory = {
-          ...category,
-          fields: category.fields.map(f => ({ ...f, value: "" }))
-        };
-
-        setSettings(prev =>
-          prev.map(cat => (cat.id === category.id ? updatedCategory : cat))
-        );
-      } else {
-        toast.error("Failed to upload: " + data.error);
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Error submitting form");
-    }
-  }
-};
 
 
   return (
@@ -231,8 +303,18 @@ export default function Settings() {
                         <label className="block text-sm font-medium text-gray-700">
                           {field.label}
                         </label>
-                        <textarea
+                        {/* <textarea
                           placeholder={field.value || ""}
+                          required
+                          onChange={(e) =>
+                            handleChange(category.id, idx, e.target.value, field.type)
+                          }
+                          rows={4}
+                          className="mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm resize-y overflow-auto"
+                          style={{ padding: "8px", color: "black", border: "solid 1px" }}
+                        ></textarea> */}
+                        <textarea
+                          value={field.value || ""}   // ✅ use value not placeholder
                           required
                           onChange={(e) =>
                             handleChange(category.id, idx, e.target.value, field.type)
@@ -261,10 +343,21 @@ export default function Settings() {
                         <label className="block text-sm font-medium text-gray-700">
                           {field.label}
                         </label>
-                        <input
+                        {/* <input
                           type={field.type}
                           required
                           placeholder={field.placeholder || field.value}
+                          onChange={(e) =>
+                            handleChange(category.id, idx, e.target.value, field.type)
+                          }
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          style={{ padding: "8px", color: "black", border: "solid 1px" }}
+                        /> */}
+                        <input
+                          type={field.type}
+                          required
+                          value={field.value || ""}   // ✅ controlled input
+                          placeholder={field.placeholder || ""}
                           onChange={(e) =>
                             handleChange(category.id, idx, e.target.value, field.type)
                           }
@@ -280,11 +373,22 @@ export default function Settings() {
 
             {/* Sticky button */}
             <div className="pt-4">
-              <button
+              {/* <button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-purple-500 text-white py-2 rounded-lg shadow"
               >
                 Save
+              </button> */}
+              <button
+                type="submit"
+                disabled={loadingCategoryId === category.id} // disable if this form is saving
+                className={`w-full py-2 rounded-lg shadow text-white ${
+                  loadingCategoryId === category.id
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-purple-500"
+                }`}
+              >
+                {loadingCategoryId === category.id ? "Saving..." : "Save"}
               </button>
             </div>
           </form>

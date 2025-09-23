@@ -7,6 +7,7 @@ import History from "./History";
 import Settings from "./Settings";
 import Category from "./Category";
 import T_Category from "./T_Category";
+import ProAssistant from "./ProAssistant"
 
 export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -161,6 +162,7 @@ export default function DashboardLayout({ children }) {
   else if (activeTab === "settings") mainContent = <Settings targetLang={targetLang} />;
   else if (activeTab === "category") mainContent = <Category targetLang={targetLang} />;
   else if (activeTab === "t_category") mainContent = <T_Category targetLang={targetLang} />;
+  else if (activeTab === "chat_pro") mainContent = <ProAssistant targetLang={targetLang} />;
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -230,6 +232,17 @@ export default function DashboardLayout({ children }) {
             >
               {/* {translatedTexts.newChat || "New Chat"} */}New Chat
             </button>
+            
+              <button
+                onClick={() => { setActiveTab("chat_pro"); setSidebarOpen(false); }}
+                className={`w-full text-left px-4 py-2 rounded-md transition-shadow duration-300
+                  ${activeTab === "chat_pro"
+                    ? "bg-blue-100 text-blue-700 shadow-md font-bold"
+                    : "text-white hover:text-blue-600 hover:shadow-sm"}`}
+              >
+                {/* {translatedTexts.category || "Assistant"} */}Smart Assist
+              </button>
+            
             <button
               onClick={() => { setActiveTab("history"); setSidebarOpen(false); }}
               className={`w-full text-left px-4 py-2 rounded-md transition-shadow duration-300
