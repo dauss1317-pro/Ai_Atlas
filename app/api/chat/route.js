@@ -457,7 +457,12 @@ export async function POST(req) {
     - Teaming : it is network teaming to configure and combine network into 1 single network
     - Vitrox : company that provide x-ray and optical machine
     - IRP || irp : image recontruction processor use for image generation process
-    `;
+    - rhs || RHS : right hand side
+    - lhs || LHS : left hand side
+    - VVTS : vitrox verification tool solution
+    - PM : preventive maintenence
+    - LE || AKD : motion controller driver
+    - digital io || digital I/O : hardware to control input output`;
 
     // Prepare system prompt
     const systemPrompt = {

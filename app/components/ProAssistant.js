@@ -16,6 +16,7 @@ export default function ChatBox() {
   const [showMenu, setShowMenu] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const fileInputRef = useRef(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   const TypingIndicator = () => (
     <div className="flex items-center space-x-1">
@@ -110,75 +111,85 @@ export default function ChatBox() {
     fileInputRef.current.click();
     setShowMenu(false);
   };
-
-  async function sendMessage() {
-    if (!input.trim()) return;
+    async function sendMessage(messageText = "", category = null) {
+    const text = messageText || input;
+    if (!text.trim() && !category) return;
     if (!currentUser?.id) {
-      console.error("No user logged in");
-      return;
+        console.error("No user logged in");
+        return;
     }
 
-    const userMessage = { id: Date.now(), role: "user", text: input };
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
-    setInput("");
+    // ✅ Update state if user selected a category
+    if (category) {
+        setSelectedCategory(category);
+    }
+
+    const categoryToSend = category || selectedCategory;
+
+    // User message only if typed
+    if (text.trim()) {
+        const userMessage = { id: Date.now(), role: "user", text };
+        setMessages((prev) => [...prev, userMessage]);
+        setInput("");
+    }
 
     const botTypingId = `typing-${Date.now()}`;
     setMessages((prev) => [
-      ...prev,
-      { id: botTypingId, role: "bot", text: "__TYPING__" },
+        ...prev,
+        { id: botTypingId, role: "bot", text: "__TYPING__" },
     ]);
 
     try {
-      const res = await fetch("/api/chat-assistant", {
+        const res = await fetch("/api/chat-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: updatedMessages.map((m) => ({
-            role: m.role === "bot" ? "assistant" : m.role,
-            content: m.text,
-          })),
-          userId: currentUser.id,
-          conversationId,
+            messages: [
+            ...messages.map((m) => ({
+                role: m.role === "bot" ? "assistant" : m.role,
+                content: m.text,
+            })),
+            ...(text.trim() ? [{ role: "user", content: text }] : []),
+            ],
+            userId: currentUser.id,
+            conversationId,
+            category: categoryToSend, // ✅ always send remembered category
         }),
-      });
+        });
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const data = await res.json();
-      if (data.conversationId && !conversationId) {
+        const data = await res.json();
+        if (data.conversationId && !conversationId) {
         setConversationId(data.conversationId);
-      }
+        }
 
-      const aiReply =
-        data.reply || "Hmm... I couldn’t think of anything to say.";
-      const botMessageId = Date.now() + 1;
+        const aiReply = data.reply || "Hmm... I couldn’t think of anything to say.";
+        const botMessageId = Date.now() + 1;
 
-      setMessages((prev) => [
+        setMessages((prev) => [
         ...prev.filter((m) => m.id !== botTypingId),
         { id: botMessageId, role: "bot", text: "", typing: true },
-      ]);
+        ]);
 
-      setTimeout(() => {
-        typeWriterEffect(botMessageId, aiReply, setMessages, 40);
-      }, 50);
+        setTimeout(() => {
+        typeWriterEffect(botMessageId, aiReply, setMessages, 10);
+        }, 10);
     } catch (err) {
-      console.error("Chat send error:", err);
-      setMessages((prev) =>
+        console.error("Chat send error:", err);
+        setMessages((prev) =>
         prev.map((m) =>
-          m.id === botTypingId
+            m.id === botTypingId
             ? {
                 id: Date.now(),
                 role: "bot",
                 text: "⚠️ Sorry, something went wrong.",
-              }
+                }
             : m
         )
-      );
+        );
     }
-  }
+    }
 
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -212,74 +223,87 @@ export default function ChatBox() {
         }}
       >
         {messages.length > 0 ? (
-          <>
-            {messages.map(({ id, role, text, options, typing }) => (
-              <div
+        <>{messages.map(({ id, role, text, options, typing }) => (
+            <div
                 key={id}
-                className={`flex ${
-                  role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
+                className={`flex ${role === "user" ? "justify-end" : "justify-start"}`}
+            >
                 <div
-                  className={`max-w-[70%] p-3 rounded-lg whitespace-pre-wrap ${
+                className={`relative max-w-[70%] p-3 rounded-lg whitespace-pre-wrap ${
                     role === "user"
-                      ? "bg-blue-500 text-white rounded-br-none"
-                      : "bg-gray-200 text-gray-900 rounded-bl-none"
-                  }`}
+                    ? "bg-blue-500 text-white rounded-br-none"
+                    : "bg-gray-200 text-gray-900 rounded-bl-none"
+                }`}
                 >
-                  {text === "__TYPING__" && <TypingIndicator />}
+                {text === "__TYPING__" && <TypingIndicator />}
 
-                  {role === "bot" && text !== "__TYPING__" && (
-                    <>
-                      {typing ? (
-                        <span>{text}</span>
-                      ) : (
-                        <ReactMarkdown>{text}</ReactMarkdown>
-                      )}
-                      <button
-                        onClick={() => copyToClipboard(text)}
-                        className="sticky right-0 top-0 m-1 p-1 hover:bg-gray-300 rounded"
-                        aria-label="Copy message"
-                        title="Copy to clipboard"
-                        style={{ fontSize: "0.8rem", lineHeight: 1, cursor: "pointer" }}
-                        >
-                        <FaClipboard />
-                       </button>
-                    </>
-                  )}
+                {role === "bot" && text !== "__TYPING__" && (
+                <>
+                    {typing ? (
+                    <span>{text}</span>
+                    ) : (
+                    <ReactMarkdown>{text}</ReactMarkdown>
+                    )}
+                    
+                </>
+                )}
 
-                  {role === "user" && <ReactMarkdown>{text}</ReactMarkdown>}
+                {role === "user" && <ReactMarkdown>{text}</ReactMarkdown>}
 
-                  {options && (
+                {options && (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {options.map((opt, idx) => {
-                        const label =
-                          typeof opt === "string" ? opt : opt.label;
-                        const value =
-                          typeof opt === "string" ? opt : opt.value;
+                    {options.map((opt, idx) => {
+                        const label = typeof opt === "string" ? opt : opt.label;
+                        const value = typeof opt === "string" ? opt : opt.value;
                         return (
-                          <button
+                        <button
                             key={idx}
                             onClick={() => {
-                              setInput(value);
-                              sendMessage();
+                            setInput(value);
+                            sendMessage();
                             }}
                             className="bg-white border border-gray-300 text-gray-800 px-3 py-1 rounded-md hover:bg-gray-100"
-                          >
+                        >
                             {label}
-                          </button>
+                        </button>
                         );
-                      })}
+                    })}
                     </div>
-                  )}
+                )}
                 </div>
-              </div>
+            </div>
             ))}
-          </>
+
+        </>
         ) : (
-          <div className="text-gray-500 text-center" style={{ color: "white" }}>
-            Atlas now has our smartest, fastest, most useful AI to assist in providing the procedure and step to completing the task.
-          </div>
+        <div className="flex flex-col items-center justify-center text-center space-y-4">
+            <p className="text-white font-medium">
+            Atlas now has our smartest, fastest, most useful AI to assist in providing the procedure and step to completing the task.<br/>Please select
+            your topic before proceed.
+            </p>
+
+            <div className="flex flex-wrap justify-center gap-3">
+            {[
+                { label: "📘 Air Pressure", value: "Air Pressure", category: "air_pressure" },
+                { label: "🔧 Imaging", value: "Imaging", category: "imaging" },
+                { label: "❓ MCA", value: "MCA", category: "mca" },
+                { label: "📘 PSP", value: "PSP", category: "psp" },
+                { label: "🔧 Server", value: "Server", category: "server" },
+                { label: "📝 VM", value: "VM", category: "vm" },
+                { label: "📘 XY Stage", value: "XY Stage", category: "xy_stage" },
+            ].map((opt, idx) => (
+                <button
+                key={idx}
+                onClick={() => {
+                    sendMessage("", opt.category);
+                }}
+                className="bg-white border border-gray-300 text-gray-800 px-3 py-1 rounded-md hover:bg-gray-100"
+                >
+                {opt.label}
+                </button>
+            ))}
+            </div>
+        </div>
         )}
 
         <div ref={messagesEndRef} />
