@@ -237,15 +237,59 @@ export default function ChatBox() {
                 >
                 {text === "__TYPING__" && <TypingIndicator />}
 
-                {role === "bot" && text !== "__TYPING__" && (
+                {/* {role === "bot" && text !== "__TYPING__" && (
                 <>
                     {typing ? (
                     <span>{text}</span>
                     ) : (
-                    <ReactMarkdown>{text}</ReactMarkdown>
+                    <ReactMarkdown className="markdown">{text}</ReactMarkdown>
                     )}
-                    
+
                 </>
+                )} */}
+
+                {role === "bot" && text !== "__TYPING__" && (
+                    <>
+                        {typing ? (
+                        <span>{text}</span>
+                        ) : (
+                        <ReactMarkdown
+                            components={{
+                            p: ({node, ...props}) => (
+                                <p style={{ margin: 0, lineHeight: "1.6" }} {...props} />
+                            ),
+                            ol: ({node, ...props}) => (
+                                <ol
+                                style={{
+                                    margin: "0",
+                                    paddingLeft: "1.4rem",
+                                    listStyleType: "decimal", // 👈 ensures 1., 2., 3. appear
+                                }}
+                                {...props}
+                                />
+                            ),
+                            ul: ({node, ...props}) => (
+                                <ul
+                                style={{
+                                    margin: "0",
+                                    paddingLeft: "1.4rem",
+                                    listStyleType: "disc",
+                                }}
+                                {...props}
+                                />
+                            ),
+                            li: ({node, ...props}) => (
+                                <li style={{ marginBottom: "0.3rem", lineHeight: "1.5" }} {...props} />
+                            ),
+                            strong: ({node, ...props}) => (
+                                <strong style={{ fontWeight: 600, color: "#222" }} {...props} />
+                            ),
+                            }}
+                        >
+                            {text}
+                        </ReactMarkdown>
+                        )}
+                    </>
                 )}
 
                 {role === "user" && <ReactMarkdown>{text}</ReactMarkdown>}
@@ -291,6 +335,7 @@ export default function ChatBox() {
                 { label: "🔧 Server", value: "Server", category: "server" },
                 { label: "📝 VM", value: "VM", category: "vm" },
                 { label: "📘 XY Stage", value: "XY Stage", category: "xy_stage" },
+                { label: "📝 CD&A", value: "cdna", category: "cdna" },
             ].map((opt, idx) => (
                 <button
                 key={idx}
