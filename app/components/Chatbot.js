@@ -19,6 +19,8 @@ export default function Chatbot() {
   const [showMenu, setShowMenu] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const fileInputRef = useRef(null);
+  const [pdfViewer, setPdfViewer] = useState(null); // holds the PDF link if open
+
   
 
   const TypingIndicator = () => (
@@ -41,29 +43,7 @@ export default function Chatbot() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Load logged-in user + wallpaper
-  // useEffect(() => {
-  // const storedUser = localStorage.getItem("user");
-  // if (storedUser) {
-  //   setCurrentUser(JSON.parse(storedUser));
-  // }
 
-  // const token = localStorage.getItem("authToken");
-  // if (!token) return;
-
-  //   fetch("/api/wallpaper", {
-  //     method: "GET",
-  //     headers: { Authorization: `Bearer ${token}` },
-  //   })
-  //     .then((res) => res.json())
-  //     .then((data) => {
-  //       if (data.wallpaper) {
-  //         setWallpaper(data.wallpaper);
-  //         localStorage.setItem("wallpaper", data.wallpaper); // refresh cache
-  //       }
-  //     })
-  //     .catch((err) => console.error("Failed to load wallpaper:", err));
-  // }, []);
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) setCurrentUser(JSON.parse(storedUser));
@@ -159,74 +139,6 @@ export default function Chatbot() {
     setShowMenu(false);
   };
 
-  // async function sendMessage() {
-  //   if (!input.trim()) return;
-  //   if (!currentUser?.id) {
-  //     console.error("No user logged in");
-  //     return;
-  //   }
-
-  //   const userMessage = { id: Date.now(), role: "user", text: input };
-  //   const updatedMessages = [...messages, userMessage];
-  //   setMessages(updatedMessages);
-  //   setInput("");
-  //   setLoading(true);
-
-  //   try {
-  //     const res = await fetch("/api/chat", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({
-  //         messages: updatedMessages.map((m) => ({
-  //           role: m.role === "bot" ? "assistant" : m.role,
-  //           content: m.text,
-  //         })),
-  //         userId: currentUser.id,
-  //         conversationId,
-  //       }),
-  //     });
-
-  //     if (!res.ok) {
-  //       const errorText = await res.text();
-  //       console.error("Server Error:", errorText);
-  //       throw new Error(`HTTP ${res.status} - ${errorText}`);
-  //     }
-  //     const data = await res.json();
-
-  //     if (data.conversationId && !conversationId) {
-  //       setConversationId(data.conversationId);
-  //     }
-
-  //     if (data.menuOptions) {
-  //       setMessages((prev) => [
-  //         ...prev,
-  //         {
-  //           id: Date.now(),
-  //           role: "bot",
-  //           text: data.reply || "",
-  //           options: data.menuOptions,
-  //         },
-  //       ]);
-  //       setLoading(false);
-  //     } else {
-  //       const aiReply =
-  //         data.reply || "Hmm... I couldn’t think of anything to say.";
-
-  //       const botMessageId = Date.now() + 1;
-  //       setMessages((prev) => [
-  //         ...prev,
-  //         { id: botMessageId, role: "bot", text: "" },
-  //       ]);
-
-  //       setTimeout(() => {
-  //         typeWriterEffect(botMessageId, aiReply, () => setLoading(false));
-  //       }, 90);
-  //     }
-  //   } catch (err) {
-  //     console.error("Chat send error:", err);
-  //     setLoading(false);
-  //   }
-  // } // ✅ closes sendMessage
   async function sendMessage() {
     if (!input.trim()) return;
     if (!currentUser?.id) {
@@ -287,7 +199,14 @@ export default function Chatbot() {
         // Replace typing bubble with empty bot message
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === botTypingId ? { id: botMessageId, role: "bot", text: "" } : m
+            m.id === botTypingId
+              ? {
+                  id: botMessageId,
+                  role: "bot",
+                  text: "",
+                  documentation: data.documentation || null, // ✅ attach doc link
+                }
+              : m
           )
         );
 
@@ -316,6 +235,22 @@ export default function Chatbot() {
     }
   }
 
+  const openPdf = (link) => {
+    const pdfUrl = link.startsWith("http")
+      ? link
+      : `${window.location.origin}${link}`;
+
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+
+    if (isMobile || isStandalone) {
+      window.open(pdfUrl, "_blank");
+    } else {
+      setPdfViewer(pdfUrl);
+    }
+  };
+
+
   return (
     <div className="flex flex-col h-full mx-auto bg-white rounded-lg shadow-lg border border-gray-200"> 
       {/* Header : max-w-3xl */}
@@ -332,78 +267,7 @@ export default function Chatbot() {
           <MdWallpaper size={24} />
         </button>
       </header>
-
-      {/* Messages
-      <main className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-[400px]" 
-      style={{
-        backgroundImage: wallpaper ? `url(${wallpaper})` : "none",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}>
-        {messages.length > 0 ? (
-          messages.map(({ id, role, text, options }) => (
-            <div
-              key={id}
-              className={`flex ${role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[70%] p-3 rounded-lg whitespace-pre-wrap ${
-                  role === "user"
-                    ? "bg-blue-500 text-white rounded-br-none"
-                    : "bg-gray-200 text-gray-900 rounded-bl-none"
-                }`}
-              >
-                <ReactMarkdown>{text}</ReactMarkdown>
-                {role === "assistant" && (
-                  <button
-                    onClick={() => copyToClipboard(text)}
-                    className="sticky right-0 top-0 m-1 p-1 hover:bg-gray-300 rounded"
-                    aria-label="Copy message"
-                    title="Copy to clipboard"
-                    style={{ fontSize: "0.8rem", lineHeight: 1, cursor: "pointer" }}
-                  >
-                    <FaClipboard />
-                  </button>
-                )}
-
-                {loading && (
-                  <div className="flex justify-start">
-                    <TypingIndicator />
-                  </div>
-                )}
-
-                {options && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {options.map((opt, idx) => {
-                      const label = typeof opt === "string" ? opt : opt.label;
-                      const value = typeof opt === "string" ? opt : opt.value;
-
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            setInput(value);
-                            sendMessage();
-                          }}
-                          className="bg-white border border-gray-300 text-gray-800 px-3 py-1 rounded-md hover:bg-gray-100"
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="text-gray-500 text-center" style={{ color: "white"}}>
-            Atlas now has our smartest, fastest, most useful AI to asist in solve the issue without any hesitation.
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </main> */}
+      
       <main
         className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-[400px]"
         style={{
@@ -415,7 +279,7 @@ export default function Chatbot() {
       >
         {messages.length > 0 ? (
           <>
-            {messages.map(({ id, role, text, options }) => (
+            {messages.map(({ id, role, text, options, documentation }) => (
               <div
                 key={id}
                 className={`flex ${role === "user" ? "justify-end" : "justify-start"}`}
@@ -432,6 +296,35 @@ export default function Chatbot() {
                     {text === "__TYPING__" ? "" : text}
                   </ReactMarkdown>
                   {text === "__TYPING__" && <TypingIndicator />}
+
+                  {/* ✅ If backend sends a documentation link, show button */}
+                  {role === "bot" && documentation && text !== "__TYPING__" && (
+                    <div className="mt-3">
+                      {Array.isArray(documentation)
+                        ? documentation.map((link, idx) => (
+                            <div key={idx}>
+                              <a
+                                href={link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 underline hover:text-blue-800"
+                              >
+                                {decodeURIComponent(link.split("/").pop())}
+                              </a>
+                            </div>
+                          ))
+                        : (
+                            <a
+                              href={documentation}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 underline hover:text-blue-800"
+                            >
+                              {decodeURIComponent(documentation.split("/").pop())}
+                            </a>
+                          )}
+                    </div>
+                  )}
 
                   {role === "assistant" && (
                     <button
@@ -484,6 +377,28 @@ export default function Chatbot() {
         )}
 
         <div ref={messagesEndRef} />
+
+        {/* ✅ PDF Modal */}
+        {pdfViewer && (
+          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-lg w-[90%] h-[90%] relative">
+              <button
+                onClick={() => setPdfViewer(null)}
+                className="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+              >
+                ✕ Close
+              </button>
+              <iframe
+                src={pdfViewer}
+                title="Documentation PDF"
+                width="100%"
+                height="100%"
+                className="rounded-b-lg"
+              />
+            </div>
+          </div>
+        )}
+
       </main>
 
       {toast && (

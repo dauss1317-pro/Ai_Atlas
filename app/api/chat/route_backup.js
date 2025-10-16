@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import mysql from "mysql2/promise";
 import { v4 as uuidv4 } from "uuid";
 import { read, utils } from "xlsx";
-import fs from "fs";
-import path from "path";
-import stringSimilarity from "string-similarity";
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -217,41 +214,6 @@ export async function findTopSemanticMatches(query, category, topN = 3) {
   return filtered.slice(0, topN);
 }
 
-// async function findRelatedDocs(issueText, localDocsFolder, publicDocsUrl) {
-//   try {
-//     const files = fs.readdirSync(localDocsFolder);
-//     const keywords = issueText.toLowerCase().split(/\s+/).filter(k => k.length > 2);
-
-//     const relatedFiles = files.filter(file =>
-//       keywords.some(k => file.toLowerCase().includes(k))
-//     );
-
-//     return relatedFiles.map(f => `${publicDocsUrl}/${encodeURIComponent(f)}`);
-//   } catch (err) {
-//     console.error("❌ findRelatedDocs error:", err);
-//     return [];
-//   }
-// }
-// ✅ Smart similarity-based document finder
-async function findRelatedDocs(issueText, folderPath, baseUrl) {
-  const files = fs.readdirSync(folderPath).filter(f => f.endsWith(".pdf"));
-  const lowerIssue = issueText.toLowerCase();
-
-  const results = files.map(f => ({
-    file: f,
-    score: stringSimilarity.compareTwoStrings(lowerIssue, f.toLowerCase())
-  }));
-
-  const ranked = results
-    .filter(r => r.score > 0.1) // tune threshold if needed
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
-
-  console.log("🔍 Similarity match results:", ranked);
-  return ranked.map(r => `${baseUrl}/${encodeURIComponent(r.file)}`);
-}
-
-
 const userCategoryMap = {};
 
 async function generateReplyWithOllama(systemPrompt, userPrompt) {
@@ -327,8 +289,6 @@ Please provide a **general troubleshooting guide** relevant to this question.`
 
     // Store matches for each conversation
     const conversationMatches = {}; // { conversationId: [matches] }
-    const lastIssueMap = {}; // { conversationId: "Camera card fatal error" }
-
 
 export async function POST(req) {
   try {
@@ -337,64 +297,6 @@ export async function POST(req) {
     const { messages, userId, conversationId } = await req.json();
     const convId = conversationId || uuidv4();
     const lastMsg = messages[messages.length - 1];
-
-    // ✅ Fetch username first (so you can use it anywhere below)
-    let username = "User";
-    try {
-      const [rows] = await pool.query("SELECT name FROM users WHERE id = ?", [userId]);
-      if (rows.length) username = rows[0].name;
-    } catch {
-      // ignore error
-    }
-
-    // ✅ Step 1: Detect doc-related query
-    const docKeywords = [
-      "documentation", "manual", "procedure", "guide",
-      "replace", "replacement", "how to", "perform",
-      "instruction", "setup", "adjustment", "maintenance", "cleaning"
-    ];
-
-    const isDocRequest = docKeywords.some(k =>
-      lastMsg.content.toLowerCase().includes(k)
-    );
-
-    // ✅ Step 2: If user is asking for doc & we have previous issue saved
-    if (isDocRequest && lastIssueMap[conversationId]) {
-      console.log("📄 Detected documentation request related to previous issue");
-
-      const previousIssue = lastIssueMap[conversationId];
-      const localDocsFolder = path.join(process.cwd(), "public", "pdf_upload");
-      const publicDocsUrl = "https://atlaschatbot.space/pdf_upload";
-
-      const relatedDocs = await findRelatedDocs(previousIssue, localDocsFolder, publicDocsUrl);
-
-      if (relatedDocs.length) {
-        const docList = relatedDocs
-          .map((link, i) => `📘 [Documentation ${i + 1}](${link})`)
-          .join("\n");
-
-        const reply = `Here’s the related documentation for your previous issue (**${previousIssue}**):\n\n${docList}`;
-
-        await pool.query(
-          "INSERT INTO chat_messages (conversation_id, user_id, role, message, created_at) VALUES (?, ?, 'assistant', ?, NOW())",
-          [convId, userId, reply]
-        );
-
-        return NextResponse.json({
-          reply,
-          conversationId: convId,
-          documentation: relatedDocs
-        });
-      } else {
-        const reply = `Dear ${username}, I couldn't find a specific document for your previous issue (**${previousIssue}**). Please check the docs folder manually.`;
-        await pool.query(
-          "INSERT INTO chat_messages (conversation_id, user_id, role, message, created_at) VALUES (?, ?, 'assistant', ?, NOW())",
-          [convId, userId, reply]
-        );
-
-        return NextResponse.json({ reply, conversationId: convId });
-      }
-    }
 
     // Save the user message
     await pool.query(
@@ -405,7 +307,7 @@ export async function POST(req) {
     // Handle first message category menu
 
      // Fetch username
-    // let username = "User";
+    let username = "User";
     try {
       const [rows] = await pool.query("SELECT name FROM users WHERE id = ?", [userId]);
       if (rows.length) username = rows[0].name;
@@ -545,10 +447,6 @@ export async function POST(req) {
       selectedMatch = filteredMatches[0];
       conversationMatches[convId].usedCount = 0;
       console.log("🆕 New question → Using best match (index 0)");
-      if (selectedMatch?.issue) {
-        lastIssueMap[convId] = selectedMatch.issue;
-        console.log("💾 Remembered last issue for", convId, "→", selectedMatch.issue);
-      }
     }
 
     console.log("🎯 Raw selectedMatch:", selectedMatch);
@@ -557,7 +455,7 @@ export async function POST(req) {
       score: selectedMatch.score,
       issue: selectedMatch.issue || selectedMatch.Issue,
       solution: selectedMatch.solution || selectedMatch.Solution,
-      docLink: selectedMatch.docLinks?.join(", ") || "None"
+      docLink: selectedMatch.docLink || "None"
     });
 
     // Prepare glossary (hardcoded for now)

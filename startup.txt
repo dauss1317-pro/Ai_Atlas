@@ -1,0 +1,7 @@
+1. run llama3 on llama project folder (CMD)
+2. run xampp sql & apache
+3. run npm dev on project folder (CMD)
+4. run run rag_server.py
+5. run EmbedService on task manager
+6. run cloudflared
+* cloudflared tunnel run e07abf30-21f9-434b-a92b-d35182188aa9

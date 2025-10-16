@@ -152,6 +152,7 @@ export default function ChatBox() {
             ...(text.trim() ? [{ role: "user", content: text }] : []),
             ],
             userId: currentUser.id,
+            username: currentUser.name,
             conversationId,
             category: categoryToSend, // ✅ always send remembered category
         }),

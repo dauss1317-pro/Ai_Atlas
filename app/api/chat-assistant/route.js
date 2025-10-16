@@ -40,7 +40,7 @@
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { messages, userId, conversationId, category } = body;
+    const { messages, userId, conversationId, category, username } = body;
 
     const lastMessage = messages?.[messages.length - 1]?.content || "";
 
@@ -53,6 +53,7 @@ export async function POST(req) {
         category, // ✅ pass category
         userId,
         conversationId,
+        username,
       }),
     });
 
