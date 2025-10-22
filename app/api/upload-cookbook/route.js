@@ -1,9 +1,7 @@
 import fs from "fs";
 import path from "path";
-import mysql from "mysql2/promise"; // or your preferred DB client
 
 export async function POST(req) {
-  let connection;
   try {
     const contentType = req.headers.get("content-type") || "";
     if (!contentType.includes("multipart/form-data")) {
@@ -14,52 +12,38 @@ export async function POST(req) {
     }
 
     const formData = await req.formData();
-    const title = formData.get("Title")?.toString() || "";
-    const description = formData.get("Description")?.toString() || "";
+    const category = formData.get("Category")?.toString() || "Uncategorized"; // get category from frontend
     const file = formData.get("Documentation");
 
-    let fileName = null;
-    let dbFilePath =null;
-    if (file && file instanceof File) {
-      const uploadDir = path.join(process.cwd(), "public", "pdf_upload");
-      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-      fileName = `${file.name}`;
-      const filePath = path.join(uploadDir, fileName);
-
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      fs.writeFileSync(filePath, buffer);
-
-      dbFilePath = `/pdf_upload/${fileName}`;
+    if (!file || !(file instanceof File)) {
+      return new Response(
+        JSON.stringify({ success: false, error: "No file uploaded" }),
+        { status: 400 }
+      );
     }
 
-    // Create a reusable connection pool
-    const pool = mysql.createPool({
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_DATABASE,
-    });
+    // Save in pdf_upload/AXI/<category> folder
+    const uploadDir = path.join(process.cwd(), "public", "pdf_upload", "AXI", category);
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-    const [result] = await pool.execute(
-      `INSERT INTO axi_categories (title, description, pdf_link) VALUES (?, ?, ?)`,
-      [title, description, dbFilePath]
-    );
+    const fileName = `${file.name}`;
+    const filePath = path.join(uploadDir, fileName);
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    fs.writeFileSync(filePath, buffer);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Upload & DB update successful",
-        id: result.insertId,
-        file: fileName,
+        message: "Upload successful",
+        file: `/pdf_upload/AXI/${category}/${fileName}`,
+        category
       }),
       { status: 200 }
     );
   } catch (err) {
     console.error(err);
     return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500 });
-  } finally {
-    if (connection) await connection.end();
   }
 }

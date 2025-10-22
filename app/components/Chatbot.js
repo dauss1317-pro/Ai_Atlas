@@ -307,7 +307,7 @@ export default function Chatbot() {
                                 href={link}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-blue-600 underline hover:text-blue-800"
+                                className="text-blue-600 underline hover:text-blue-800 break-words"
                               >
                                 {decodeURIComponent(link.split("/").pop())}
                               </a>
@@ -318,7 +318,7 @@ export default function Chatbot() {
                               href={documentation}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 underline hover:text-blue-800"
+                              className="text-blue-600 underline hover:text-blue-800 break-words"
                             >
                               {decodeURIComponent(documentation.split("/").pop())}
                             </a>

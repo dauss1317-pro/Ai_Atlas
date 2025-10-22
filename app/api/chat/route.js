@@ -13,15 +13,33 @@ const pool = mysql.createPool({
   database: process.env.DB_DATABASE,
 });
 
+// =====================
+// 🔹 Global caches
+// =====================
 let axiData = [];
 let aoiData = [];
+let cachedEmbeddings = { AXI: [], AOI: [] };
 let excelLoaded = false;
+let lastLoaded = 0;
 
-// We'll cache embeddings here: { AXI: [...], AOI: [...] }
-const cachedEmbeddings = {
-  AXI: [],
-  AOI: [],
-};
+// Refresh every 10 minutes (600,000 ms)
+const REFRESH_INTERVAL = 10 * 60 * 1000;
+
+// =====================
+// 🔹 Ensure spreadsheet stays updated
+// =====================
+export async function ensureExcelLoaded() {
+  const now = Date.now();
+  if (!excelLoaded || now - lastLoaded > REFRESH_INTERVAL) {
+    console.log("🔄 Refreshing Google Sheets data...");
+    await loadSpreadsheetFromUrl();
+    lastLoaded = now;
+    console.log(`✅ Data refreshed at ${new Date().toLocaleTimeString()}`);
+  } else {
+    const minutesLeft = Math.round((REFRESH_INTERVAL - (now - lastLoaded)) / 60000);
+    console.log(`⏳ Using cached data (next refresh in ~${minutesLeft} min)`);
+  }
+}
 
 function cleanDataKeys(data) {
   return data.map((row) => {
@@ -53,30 +71,93 @@ async function fetchEmbedding(text) {
   }
 }
 
-async function loadExcelFromUrl() {
+// async function loadExcelFromUrl() {
+//   try {
+//     const axiUrl = "https://laanungadget.com/data/axi_learn.xlsx";
+//     const aoiUrl = "https://laanungadget.com/data/aoi_learn.xlsx";
+
+//     // Fetch AXI Excel
+//     const axiResponse = await fetch(axiUrl);
+//     if (!axiResponse.ok) throw new Error(`Failed to fetch AXI Excel: ${axiResponse.statusText}`);
+//     const axiBuffer = Buffer.from(await axiResponse.arrayBuffer());
+//     const wbAxi = read(axiBuffer, { type: "buffer" });
+//     const axiSheet = wbAxi.Sheets[wbAxi.SheetNames[0]];
+//     const rawAxi = utils.sheet_to_json(axiSheet);
+//     axiData = cleanDataKeys(rawAxi);
+
+//     // Fetch AOI Excel
+//     const aoiResponse = await fetch(aoiUrl);
+//     if (!aoiResponse.ok) throw new Error(`Failed to fetch AOI Excel: ${aoiResponse.statusText}`);
+//     const aoiBuffer = Buffer.from(await aoiResponse.arrayBuffer());
+//     const wbAoi = read(aoiBuffer, { type: "buffer" });
+//     const aoiSheet = wbAoi.Sheets[wbAoi.SheetNames[0]];
+//     const rawAoi = utils.sheet_to_json(aoiSheet);
+//     aoiData = cleanDataKeys(rawAoi);
+
+//     // Precompute embeddings for AXI issues
+//     cachedEmbeddings.AXI = [];
+//     for (const row of axiData) {
+//       try {
+//         const issueText = (row.issue || "").toString().trim();
+//         const embedding = await fetchEmbedding(issueText);
+//         cachedEmbeddings.AXI.push(embedding);
+//       } catch (e) {
+//         console.warn("⚠️ Failed to embed AXI issue:", row.issue, e.message);
+//         cachedEmbeddings.AXI.push(null);
+//       }
+//     }
+
+//     // Precompute embeddings for AOI issues
+//     cachedEmbeddings.AOI = [];
+//     for (const row of aoiData) {
+//       try {
+//         const issueText = (row.issue || "").toString().trim();
+//         const embedding = await fetchEmbedding(issueText);
+//         cachedEmbeddings.AOI.push(embedding);
+//       } catch (e) {
+//         console.warn("⚠️ Failed to embed AOI issue:", row.issue, e.message);
+//         cachedEmbeddings.AOI.push(null);
+//       }
+//     }
+
+//     excelLoaded = true;
+//     console.log("✅ Excel data and embeddings loaded successfully.");
+//   } catch (err) {
+//     console.error("❌ Error loading Excel or embeddings:", err);
+//     throw err;
+//   }
+// }
+
+
+async function loadSpreadsheetFromUrl() {
   try {
-    const axiUrl = "https://laanungadget.com/data/axi_learn.xlsx";
-    const aoiUrl = "https://laanungadget.com/data/aoi_learn.xlsx";
+    // 🔹 Replace these IDs with your actual Google Sheet IDs
+    const axiSheetId = "13ErA0FiB9YFIIfwXL2fhF7TnVLgSzAgjSLpvR4xyH68";
+    const aoiSheetId = "1wZm5fGzdX3-PgWPaxtVxAZeKmLRKtMugTRCBodgJGH4";
 
-    // Fetch AXI Excel
+    // 🔹 Google Sheets CSV export URLs
+    const axiUrl = `https://docs.google.com/spreadsheets/d/${axiSheetId}/export?format=csv`;
+    const aoiUrl = `https://docs.google.com/spreadsheets/d/${aoiSheetId}/export?format=csv`;
+
+    // === AXI Sheet ===
     const axiResponse = await fetch(axiUrl);
-    if (!axiResponse.ok) throw new Error(`Failed to fetch AXI Excel: ${axiResponse.statusText}`);
-    const axiBuffer = Buffer.from(await axiResponse.arrayBuffer());
-    const wbAxi = read(axiBuffer, { type: "buffer" });
+    if (!axiResponse.ok) throw new Error(`Failed to fetch AXI sheet: ${axiResponse.statusText}`);
+    const axiCsv = await axiResponse.text();
+    const wbAxi = read(axiCsv, { type: "string" });
     const axiSheet = wbAxi.Sheets[wbAxi.SheetNames[0]];
-    const rawAxi = utils.sheet_to_json(axiSheet);
-    axiData = cleanDataKeys(rawAxi);
+    const axiJson = utils.sheet_to_json(axiSheet);
+    axiData = cleanDataKeys(axiJson);
 
-    // Fetch AOI Excel
+    // === AOI Sheet ===
     const aoiResponse = await fetch(aoiUrl);
-    if (!aoiResponse.ok) throw new Error(`Failed to fetch AOI Excel: ${aoiResponse.statusText}`);
-    const aoiBuffer = Buffer.from(await aoiResponse.arrayBuffer());
-    const wbAoi = read(aoiBuffer, { type: "buffer" });
+    if (!aoiResponse.ok) throw new Error(`Failed to fetch AOI sheet: ${aoiResponse.statusText}`);
+    const aoiCsv = await aoiResponse.text();
+    const wbAoi = read(aoiCsv, { type: "string" });
     const aoiSheet = wbAoi.Sheets[wbAoi.SheetNames[0]];
-    const rawAoi = utils.sheet_to_json(aoiSheet);
-    aoiData = cleanDataKeys(rawAoi);
+    const aoiJson = utils.sheet_to_json(aoiSheet);
+    aoiData = cleanDataKeys(aoiJson);
 
-    // Precompute embeddings for AXI issues
+    // === Precompute Embeddings (same as before) ===
     cachedEmbeddings.AXI = [];
     for (const row of axiData) {
       try {
@@ -89,7 +170,6 @@ async function loadExcelFromUrl() {
       }
     }
 
-    // Precompute embeddings for AOI issues
     cachedEmbeddings.AOI = [];
     for (const row of aoiData) {
       try {
@@ -103,17 +183,17 @@ async function loadExcelFromUrl() {
     }
 
     excelLoaded = true;
-    console.log("✅ Excel data and embeddings loaded successfully.");
+    console.log("✅ Google Sheets data and embeddings loaded successfully.");
   } catch (err) {
-    console.error("❌ Error loading Excel or embeddings:", err);
+    console.error("❌ Error loading Google Sheets or embeddings:", err);
     throw err;
   }
 }
 
-// Ensure Excel is loaded before use
-export async function ensureExcelLoaded() {
-  if (!excelLoaded) await loadExcelFromUrl();
-}
+// // Ensure Excel is loaded before use
+// export async function ensureExcelLoaded() {
+//   if (!excelLoaded) await loadSpreadsheetFromUrl();
+// }
 
 
 function cosineSimilarity(vecA, vecB) {
@@ -177,7 +257,7 @@ async function getRowEmbedding(category, index, text) {
   return emb;
 }
 
-export async function findTopSemanticMatches(query, category, topN = 3) {
+export async function findTopSemanticMatches(query, category, topN = 5) {
   if (!["AXI", "AOI"].includes(category)) return [];
   await ensureExcelLoaded();
 
@@ -210,28 +290,38 @@ export async function findTopSemanticMatches(query, category, topN = 3) {
     })
   );
 
-  const MIN_SCORE = 0.5;
+  const MIN_SCORE = 0.65;
   const filtered = scored.filter(Boolean).filter(m => m.score >= MIN_SCORE);
   filtered.sort((a, b) => b.score - a.score);
 
   return filtered.slice(0, topN);
 }
 
-// async function findRelatedDocs(issueText, localDocsFolder, publicDocsUrl) {
-//   try {
-//     const files = fs.readdirSync(localDocsFolder);
-//     const keywords = issueText.toLowerCase().split(/\s+/).filter(k => k.length > 2);
+function detectSubfolderFromQuery(query) {
+  const lower = query.toLowerCase();
 
-//     const relatedFiles = files.filter(file =>
-//       keywords.some(k => file.toLowerCase().includes(k))
-//     );
+  // You can expand this mapping anytime
+  const folderMap = [
+    { keywords: ["motor", "stage", "rotate", "rotation", "x-ray motor", "ballscrew"], folder: "xy_stage" },
+    { keywords: ["xray", "imaging", "image", "camera", "light", "areamodeimage", "camera card", "trigger board"], folder: "imaging" },
+    { keywords: ["vision", "light", "camera card"], folder: "mca" },
+    { keywords: ["psp", "anhua", "io"], folder: "psp" },
+    { keywords: [], folder: "server" },
+    { keywords: ["tube", "x-ray tube"], folder: "vm" },
+    { keywords: [], folder: "air_pressure" },
+  ];
 
-//     return relatedFiles.map(f => `${publicDocsUrl}/${encodeURIComponent(f)}`);
-//   } catch (err) {
-//     console.error("❌ findRelatedDocs error:", err);
-//     return [];
-//   }
-// }
+  for (const { keywords, folder } of folderMap) {
+    if (keywords.some(k => lower.includes(k))) {
+      console.log(`📂 Query matched keywords for folder: ${folder}`);
+      return folder;
+    }
+  }
+
+  console.log("📂 No specific folder detected, defaulting to main category folder.");
+  return null;
+}
+
 // ✅ Smart similarity-based document finder
 async function findRelatedDocs(issueText, folderPath, baseUrl) {
   const files = fs.readdirSync(folderPath).filter(f => f.endsWith(".pdf"));
@@ -243,7 +333,7 @@ async function findRelatedDocs(issueText, folderPath, baseUrl) {
   }));
 
   const ranked = results
-    .filter(r => r.score > 0.1) // tune threshold if needed
+    .filter(r => r.score > 0.27) // tune threshold if needed
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
 
@@ -308,8 +398,13 @@ async function getGeneralAdviceWithOllama(systemPrompt, userMessage, category, u
         systemPrompt,
         {
           role: "user",
-          content: `The user asked: "${userMessage}"\n\nNo exact match found in the ${category} knowledge base.
-Please provide a **general troubleshooting guide** relevant to this question.`
+          content: `The user asked: "${userMessage}"\n\n` +
+            `No exact or close match found in the ${category} knowledge base.\n\n` +
+            `⚠️ Instructions for the assistant:\n` +
+            `- Do NOT provide any general troubleshooting steps, guesses, or assumptions.\n` +
+            `- Do NOT include any signatures, names, or closing statements (e.g. "Best regards", "Thank you", etc.).\n` +
+            `- If no relevant information is available, reply ONLY with:\n` +
+            `"Dear ${username},\n\nSorry, no specific troubleshooting information is available for this issue."`
         }
       ]
     })
@@ -318,9 +413,10 @@ Please provide a **general troubleshooting guide** relevant to this question.`
   const ollamaData = await ollamaRes.json();
   console.log("📦 Ollama raw response:", ollamaData);
 
+  // Return Ollama reply, or fallback message (no signature)
   return (
     ollamaData.message?.content ||
-    `Dear ${username},\n\nUnfortunately, I couldn't find a direct solution. Here are some general troubleshooting tips:\n1. Check cables\n2. Restart machine\n\nBest regards,\n**Atlas Assistant Agent**\nMTSC.AI`
+    `Dear ${username},\n\nSorry, no specific troubleshooting information is available for this issue.`
   );
 }
 
@@ -359,42 +455,78 @@ export async function POST(req) {
     );
 
     // ✅ Step 2: If user is asking for doc & we have previous issue saved
-    if (isDocRequest && lastIssueMap[conversationId]) {
-      console.log("📄 Detected documentation request related to previous issue");
+    if (isDocRequest) {
+    console.log("📄 Detected documentation request");
 
-      const previousIssue = lastIssueMap[conversationId];
-      const localDocsFolder = path.join(process.cwd(), "public", "pdf_upload");
-      const publicDocsUrl = "https://atlaschatbot.space/pdf_upload";
+    // 🧠 Step 1: Detect if query relates to a subfolder
+    const detectedSub = detectSubfolderFromQuery(lastMsg.content);
+    const category = userCategoryMap[userId] || "AXI"; // AXI or AOI
 
-      const relatedDocs = await findRelatedDocs(previousIssue, localDocsFolder, publicDocsUrl);
+    // 🧩 Build folder path accordingly
+    let localDocsFolder = path.join(process.cwd(), "public", "pdf_upload", category);
+    let publicDocsUrl = `https://atlaschatbot.space/pdf_upload/${category}`;
 
-      if (relatedDocs.length) {
-        const docList = relatedDocs
-          .map((link, i) => `📘 [Documentation ${i + 1}](${link})`)
-          .join("\n");
-
-        const reply = `Here’s the related documentation for your previous issue (**${previousIssue}**):\n\n${docList}`;
-
-        await pool.query(
-          "INSERT INTO chat_messages (conversation_id, user_id, role, message, created_at) VALUES (?, ?, 'assistant', ?, NOW())",
-          [convId, userId, reply]
-        );
-
-        return NextResponse.json({
-          reply,
-          conversationId: convId,
-          documentation: relatedDocs
-        });
-      } else {
-        const reply = `Dear ${username}, I couldn't find a specific document for your previous issue (**${previousIssue}**). Please check the docs folder manually.`;
-        await pool.query(
-          "INSERT INTO chat_messages (conversation_id, user_id, role, message, created_at) VALUES (?, ?, 'assistant', ?, NOW())",
-          [convId, userId, reply]
-        );
-
-        return NextResponse.json({ reply, conversationId: convId });
-      }
+    if (detectedSub) {
+    localDocsFolder = path.join(localDocsFolder, detectedSub);
+    publicDocsUrl = `${publicDocsUrl}/${detectedSub}`;
     }
+
+    console.log(`📂 Searching docs in: ${localDocsFolder}`);
+
+
+    // 🧠 Step 1: Always start with the user's query
+    const userQuery = lastMsg.content.trim();
+
+    // Try to find documentation for the current user query
+    let relatedDocs = await findRelatedDocs(userQuery, localDocsFolder, publicDocsUrl);
+    let usedQuery = userQuery;
+
+    // 🧩 Step 2: Fallback to previous issue if nothing found
+    if (!relatedDocs.length && lastIssueMap[conversationId]) {
+      console.log("⚠️ No docs found for user query — falling back to previous issue");
+      const prevIssue = lastIssueMap[conversationId];
+      relatedDocs = await findRelatedDocs(prevIssue, localDocsFolder, publicDocsUrl);
+      usedQuery = prevIssue;
+    }
+
+    // 🧩 Step 3: Build the response message
+    let reply;
+    if (relatedDocs.length) {
+      const docList = relatedDocs
+        .map((_, i) => `📘 [Documentation ${i + 1}]`)
+        .join("\n");
+
+      // If we used fallback, tell user it’s related to previous issue
+      if (usedQuery !== userQuery) {
+        reply = `I couldn't find specific documentation for your query (**${userQuery}**), but here are related documents based on your previous issue (**${usedQuery}**):\n\n${docList}`;
+      } else {
+        reply = `Here’s the related documentation for your query (**${usedQuery}**):`; //\n\n${docList}
+      }
+    } else {
+      reply = `Dear ${username}, I couldn't find any documentation related to your query (**${userQuery}**)${
+        lastIssueMap[conversationId]
+          ? ` or your previous issue (**${lastIssueMap[conversationId]}**).`
+          : "."
+      } Please check the docs folder manually.`;
+    }
+
+    // // ✅ Save assistant message
+    // await pool.query(
+    //   "INSERT INTO chat_messages (conversation_id, user_id, role, message, created_at) VALUES (?, ?, 'assistant', ?, NOW())",
+    //   [convId, userId, reply]
+    // );
+
+    // ✅ Preserve context for future follow-ups
+    if (conversationMatches[convId]) {
+      conversationMatches[convId].lastReplyType = "docs";
+    }
+
+    return NextResponse.json({
+      reply,
+      conversationId: convId,
+      documentation: relatedDocs.length ? relatedDocs : null,
+    });
+  }
 
     // Save the user message
     await pool.query(
@@ -472,7 +604,7 @@ export async function POST(req) {
 
     const followUpKeywords = [
       "not solved", "still same", "still the same", "not working",
-      "didn't work", "no change", "still issue", "still problem", "still didnt work"
+      "didn't work", "no change", "still issue", "still problem", "still didnt work", "still didnot work", "still did not work"
     ];
 
     const isFollowUpNotSolved = followUpKeywords.some(keyword =>
@@ -488,12 +620,24 @@ export async function POST(req) {
 
     // Get matches
     let matches;
-    if (isFollowUpNotSolved && conversationMatches[convId]) {
-      console.log("🔄 Using stored matches from conversation memory");
-      matches = conversationMatches[convId].matches;
+    
+    if (isFollowUpNotSolved) {
+      if (conversationMatches[convId]?.matches?.length) {
+        console.log("🔄 Follow-up detected — rotating to next match from memory");
+        matches = conversationMatches[convId].matches;
+      } else {
+        console.log("⚠️ Follow-up detected but no previous matches — fallback to last issue");
+        if (lastIssueMap[convId]) {
+          matches = await findTopSemanticMatches(lastIssueMap[convId], category);
+          conversationMatches[convId] = { matches, usedCount: 0 };
+        } else {
+          console.log("⚠️ No context available — running new semantic search");
+          matches = await findTopSemanticMatches(lastMsg.content, category);
+          conversationMatches[convId] = { matches, usedCount: 0 };
+        }
+      }
     } else {
       matches = await findTopSemanticMatches(lastMsg.content, category);
-      console.log("🔍 Running semantic search for:", lastMsg.content);
       conversationMatches[convId] = { matches, usedCount: 0 };
     }
 
@@ -580,34 +724,31 @@ export async function POST(req) {
     - SCCA : system control and control assembly
     - -ve : step fail
     - +ve : step pass`;
-
-    // Prepare system prompt
-    // const systemPrompt = {
-    //   role: "system",
-    //   content: `1. You are a helpful technical troubleshooter. 
-    // 2. Structured Response Style:
-    // - Always begin with:
-    // Dear ${username},
-    // - Provide clear, actionable steps for technicians.
-    // - Bold important points.
-    // 3. Maintain a respectful, helpful, and professional tone.
-    // 4. Reply in the same language as the user's question
-    // 5. If the user follows up saying it still cannot be solved, provide the nearest solution based on the next best match.
-    // 6. Strictly dont show any signature or best regard
-    // ${glossary}
-    // `,
-    // };
+    
     const systemPrompt = {
       role: "system",
-      content: `1. You are a helpful technical troubleshooter. 
-    2. Structured Response Style:
-    - Always begin with:
-    Dear ${username},
-    - Provide clear, actionable steps for technicians.
-    - Bold important points.
-    3. Maintain a respectful, helpful, and professional tone.
-    4. Reply in the same language as the user's question
-    5. If the user follows up saying it still cannot be solved, provide the nearest solution based on the next best match.
+      content: `
+    You are a **technical troubleshooting assistant** for machine-related issues.
+
+    Follow these strict rules:
+    1. **Always** begin with:  
+      "Dear ${username},"
+    2. Provide **clear, direct, and actionable steps** for technicians — no generic or vague advice.
+    3. **Bold** important points and present instructions in the following format:
+    **Step 1: [Main Point]**
+    [Elaboration or explanation]
+    **Step 2: [Main Point]**
+    [Elaboration or explanation]
+    (Continue until all steps are covered.)
+    4. **Never** include:
+      - any signatures (e.g. "Best regards", "Sincerely", or your name)
+      - any closing statements like "I hope this helps", etc.
+    5. **Never** provide general troubleshooting steps. Only use details explicitly from the given issue and solution data.
+    6. Maintain a **professional**, respectful, and technical tone.
+    7. Always reply in the **same language** as the user's question.
+    8. If the user says the issue is not solved, give the **nearest alternative solution** from available data — **not** general advice.
+    9. If no matching issue or solution is found, reply: 
+   "Sorry, no specific troubleshooting information is available for this issue."
 
     ${glossary}
     `,
@@ -616,14 +757,6 @@ export async function POST(req) {
     // Prepare user prompt
     let userPrompt;
     if (selectedMatch) {
-      // userPrompt = {
-      //   role: "user",
-      //   content: `The user asked: "${lastMsg.content}"\n\n` +
-      //     `From the ${category} troubleshooting guide:\n` +
-      //     `Issue: ${selectedMatch.issue || "Unknown"}\n` +
-      //     `Solution:\n${selectedMatch.solution || "No solution provided"}\n\n` +
-      //     `Please rewrite this solution in a clear, step-by-step format, friendly and easy to follow, and respond in the same language as the user's question.`,
-      // };
       userPrompt = {
         role: "user",
         content: `The user asked: "${lastMsg.content}"\n\n` +
@@ -642,7 +775,7 @@ export async function POST(req) {
         role: "user",
         content: `The user asked: "${lastMsg.content}"\n\n` +
           `No close match found in the ${category} troubleshooting guide.\n` +
-          `Do not provide any general information`,
+          `strictly do not provide any general information`,
       };
     }
 
