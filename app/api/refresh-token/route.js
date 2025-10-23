@@ -24,9 +24,14 @@ export async function POST(req) {
 
     // Issue new access token
     const newAccessToken = jwt.sign(
-      { id: payload.id, email: payload.email },
+      {
+        id: payload.id,
+        email: payload.email,
+        name: payload.name,
+        role: payload.role
+      },
       process.env.JWT_SECRET,
-      { expiresIn: "1m" } // your short-lived token
+      { expiresIn: "15m" } // more realistic
     );
 
     return new Response(JSON.stringify({ token: newAccessToken }), {

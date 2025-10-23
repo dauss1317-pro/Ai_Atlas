@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Image from "next/image"; // for logo/icon
+import { Link } from "lucide-react";
 
 export default function Register() {
   const [name, setName] = useState("");
@@ -189,9 +190,9 @@ export default function Register() {
         {/* Footer */}
         <p className="text-center text-sm text-gray-500 mt-6">
           Already have an account?{" "}
-          <a href="/" className="text-blue-500 hover:underline">
+          <Link href="/" className="text-blue-500 hover:underline">
             Sign in
-          </a>
+          </Link>
         </p>
       </div>
     </div>

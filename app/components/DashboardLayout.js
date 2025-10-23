@@ -80,26 +80,30 @@ export default function DashboardLayout({ children }) {
 
   // Token expiry check with SweetAlert
   useEffect(() => {
-    const token = localStorage.getItem("authToken");
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
+    setUser(null);
+    window.location.href = "/";
+  };
 
-    if (!token) {
-      handleLogout();
-      return;
-    }
+  const checkToken = () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return handleLogout();
 
     let payload;
     try {
       payload = JSON.parse(atob(token.split(".")[1]));
-    } catch (err) {
-      console.error("Invalid token", err);
-      handleLogout();
-      return;
+    } catch {
+      return handleLogout();
     }
 
     const now = Math.floor(Date.now() / 1000);
     const timeLeft = payload.exp - now;
 
-    const triggerExpiryAlert = () => {
+    if (timeLeft <= 0) {
+      // Trigger SweetAlert
       let timerInterval;
       Swal.fire({
         title: 'Session Expired!',
@@ -113,14 +117,11 @@ export default function DashboardLayout({ children }) {
         didOpen: () => {
           const b = Swal.getHtmlContainer().querySelector('b');
           timerInterval = setInterval(() => {
-            const remaining = Math.ceil(Swal.getTimerLeft() / 1000);
-            b.textContent = remaining;
+            b.textContent = Math.ceil(Swal.getTimerLeft() / 1000);
           }, 1000);
         },
-        willClose: () => {
-          clearInterval(timerInterval);
-        }
-      }).then((result) => {
+        willClose: () => clearInterval(timerInterval)
+      }).then(result => {
         if (result.isConfirmed) {
           const refreshToken = localStorage.getItem("refreshToken");
           if (refreshToken) {
@@ -138,13 +139,15 @@ export default function DashboardLayout({ children }) {
           } else handleLogout();
         } else handleLogout();
       });
-    };
-
-    if (timeLeft <= 0) triggerExpiryAlert();
-    else {
-      const timer = setTimeout(triggerExpiryAlert, timeLeft * 1000);
-      return () => clearTimeout(timer);
     }
+  };
+
+  // Check immediately
+  checkToken();
+
+  // Check every minute
+  const interval = setInterval(checkToken, 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   function handleLogout() {

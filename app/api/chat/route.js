@@ -23,7 +23,7 @@ let excelLoaded = false;
 let lastLoaded = 0;
 
 // Refresh every 10 minutes (600,000 ms)
-const REFRESH_INTERVAL = 10 * 60 * 1000;
+const REFRESH_INTERVAL = 1 * 60 * 1000;
 
 // =====================
 // 🔹 Ensure spreadsheet stays updated
@@ -443,32 +443,51 @@ export async function POST(req) {
       // ignore error
     }
 
-    // ✅ Step 1: Detect doc-related query
-    const docKeywords = [
-      "documentation", "manual", "procedure", "guide",
-      "replace", "replacement", "how to", "perform",
-      "instruction", "setup", "adjustment", "maintenance", "cleaning"
+    const userMsg = lastMsg.content.toLowerCase();
+
+    // 1️⃣ Regex patterns for known doc intents (fast match)
+    const docIntentPatterns = [
+    /h[aoe]{1}w\s+to/i,        // "how to", "hoe to", "haw to"
+    /how\s+do\s+i/i,           // "how do i"
+    /procedure/i,
+    /steps?\s+(to|for)/i,
+    /instruction/i,
+    /manual/i,
+    /guide/i,
+    /replace/i,
+    /install/i,
+    /setup/i,
+    /adjustment/i,
+    /maintenance/i,
+    /cleaning/i,
+    /perform/i
     ];
 
-    const isDocRequest = docKeywords.some(k =>
-      lastMsg.content.toLowerCase().includes(k)
-    );
+    // 2️⃣ Check regex match first
+    let isDocRequest = docIntentPatterns.some((regex) => regex.test(userMsg));
 
-    // ✅ Step 2: If user is asking for doc & we have previous issue saved
+    // 3️⃣ Fallback fuzzy matching for typos / unexpected variations
+    if (!isDocRequest) {
+    const docKeywords = ["how to", "replace", "install", "setup", "guide", "procedure"];
+    
+    isDocRequest = docKeywords.some((kw) => {
+        const similarity = stringSimilarity.compareTwoStrings(userMsg, kw);
+        return similarity > 0.7; // 70% similarity threshold
+    });
+    }
+
     if (isDocRequest) {
-    console.log("📄 Detected documentation request");
+    console.log("📄 Detected documentation request (regex + fuzzy match)");
 
-    // 🧠 Step 1: Detect if query relates to a subfolder
     const detectedSub = detectSubfolderFromQuery(lastMsg.content);
-    const category = userCategoryMap[userId] || "AXI"; // AXI or AOI
+    const category = userCategoryMap[userId] || "AXI";
 
-    // 🧩 Build folder path accordingly
     let localDocsFolder = path.join(process.cwd(), "public", "pdf_upload", category);
     let publicDocsUrl = `https://atlaschatbot.space/pdf_upload/${category}`;
 
     if (detectedSub) {
-    localDocsFolder = path.join(localDocsFolder, detectedSub);
-    publicDocsUrl = `${publicDocsUrl}/${detectedSub}`;
+        localDocsFolder = path.join(localDocsFolder, detectedSub);
+        publicDocsUrl = `${publicDocsUrl}/${detectedSub}`;
     }
 
     console.log(`📂 Searching docs in: ${localDocsFolder}`);
@@ -510,11 +529,11 @@ export async function POST(req) {
       } Please check the docs folder manually.`;
     }
 
-    // // ✅ Save assistant message
-    // await pool.query(
-    //   "INSERT INTO chat_messages (conversation_id, user_id, role, message, created_at) VALUES (?, ?, 'assistant', ?, NOW())",
-    //   [convId, userId, reply]
-    // );
+    // ✅ Save assistant message
+    await pool.query(
+      "INSERT INTO chat_messages (conversation_id, user_id, role, message, created_at) VALUES (?, ?, 'assistant', ?, NOW())",
+      [convId, userId, reply]
+    );
 
     // ✅ Preserve context for future follow-ups
     if (conversationMatches[convId]) {
@@ -723,7 +742,8 @@ export async function POST(req) {
     - CDNA || CDnA : confirmation, diagnostic and adjustment
     - SCCA : system control and control assembly
     - -ve : step fail
-    - +ve : step pass`;
+    - +ve : step pass
+    - IB : inner barrier`;
     
     const systemPrompt = {
       role: "system",

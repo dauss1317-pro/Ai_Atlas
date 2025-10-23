@@ -16,6 +16,7 @@ export default function Dashboard() {
       router.replace("/");  // redirect to login if no token
     }
   }, [router]);
+  
 
   return (
     <DashboardLayout>
